@@ -40,6 +40,7 @@ static void hashmap_resize(struct hashmap *hmap) {
 
 	// Create a list of elements already in the hashmap
 	struct hashmap_bucket head;
+	head.next = NULL;
 	struct hashmap_bucket *temp_curr = &head;
 
 	// Traverse buckets, free old linked list nodes
@@ -47,11 +48,12 @@ static void hashmap_resize(struct hashmap *hmap) {
 	for(int i = 0; i < hmap->meta->bucket_count; ++i) {
 		buck_curr = hmap->meta->bucket_arr + i;
 		while(buck_curr && buck_curr->key) {
-			temp_curr->next = malloc(sizeof(struct hashmap_bucket));
-			struct hashmap_bucket *old_temp_curr = temp_curr;
+			temp_curr->next = calloc(1, sizeof(struct hashmap_bucket));
+			struct hashmap_bucket *old_temp_curr = buck_curr;
 			temp_curr = temp_curr->next;
 			temp_curr->key = buck_curr->key;
 			temp_curr->value = buck_curr->value;
+			buck_curr = buck_curr->next;
 			if(old_temp_curr != hmap->meta->bucket_arr + i) {
 				free(old_temp_curr);
 			}
@@ -154,7 +156,9 @@ void hashmap_destroy(struct hashmap *hmap) {
 			hmap->meta->value_free_func(buck_curr->value);
 			struct hashmap_bucket *old_temp_curr = buck_curr;
 			buck_curr = buck_curr->next;
-			free(old_temp_curr);
+			if(old_temp_curr != hmap->meta->bucket_arr + i) {
+				free(old_temp_curr);
+			}
 		}
 	}
 
