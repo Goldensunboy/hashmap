@@ -6,9 +6,15 @@ struct hashmap_metadata;
 // The hashmap structure visible to the user.
 typedef struct hashmap {
 	int size;
-	double loadfactor;
+	double load_factor;
 	struct hashmap_metadata *meta;
 } hashmap_t;
+
+// The collision policy types for the hashmap.
+enum collision_policy_t {
+	CP_UPDATE_ENTRY,
+	CP_FREE_OLD_ENTRY
+};
 
 // Definitions of the function types used by the hashmap, for simplicity.
 typedef int (*hash_func_t)(const void*);
@@ -21,9 +27,10 @@ typedef void (*free_func_t)(void*);
  * @param efunc The equality function for comparing keys
  * @param kffunc The function for freeing keys
  * @param vffunc The function for freeing values
+ * @param cpolicy The policy for when a key already exists in the map
  * @return A pointer to the initialized hashmap structure on the heap
  */
-struct hashmap *create_hashmap(hash_func_t hfunc, equal_func_t efunc, free_func_t kffunc, free_func_t vffunc);
+struct hashmap *create_hashmap(hash_func_t hfunc, equal_func_t efunc, free_func_t kffunc, free_func_t vffunc, enum collision_policy_t cpolicy);
 
 /* hashmap_put
  * Put a key-value pair into the hashmap.
