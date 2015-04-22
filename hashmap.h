@@ -30,7 +30,7 @@ typedef void (*free_func_t)(void*);
  * @param cpolicy The policy for when a key already exists in the map
  * @return A pointer to the initialized hashmap structure on the heap
  */
-struct hashmap *create_hashmap(hash_func_t hfunc, equal_func_t efunc, free_func_t kffunc, free_func_t vffunc, enum collision_policy_t cpolicy);
+struct hashmap *hashmap_create(hash_func_t hfunc, equal_func_t efunc, free_func_t kffunc, free_func_t vffunc, enum collision_policy_t cpolicy);
 
 /* hashmap_put
  * Put a key-value pair into the hashmap.
@@ -47,5 +47,11 @@ int hashmap_put(struct hashmap *hmap, void *key, void *value);
  * @param key The key mapping to the value to get
  * @return NULL if not found, or the mapped value if found
  */
-void *hashmap_get(struct hashmap*, void *key);
+void *hashmap_get(struct hashmap *hmap, void *key);
+
+/* hashmap_destroy
+ * Free everything in a hashmap and free the hashmap itself.
+ * @param hmap The hashmap to destroy
+ */
+void hashmap_destroy(struct hashmap *hmap);
 

@@ -1,6 +1,7 @@
 /* Andrew Wilder */
 
 #include <stdlib.h>
+#include <string.h>
 #include "hashmap.h"
 
 #define INITIAL_SIZE 10
@@ -22,7 +23,7 @@ struct hashmap_metadata {
 	enum collision_policy_t collision_policy;
 };
 
-struct hashmap *create_hashmap(hash_func_t hfunc, equal_func_t efunc, free_func_t kffunc, free_func_t vffunc, enum collision_policy_t cpolicy) {
+struct hashmap *hashmap_create(hash_func_t hfunc, equal_func_t efunc, free_func_t kffunc, free_func_t vffunc, enum collision_policy_t cpolicy) {
 	struct hashmap *hmap = calloc(1, sizeof(struct hashmap));
 	hmap->meta = malloc(sizeof(struct hashmap_metadata));
 	hmap->meta->bucket_arr = calloc(INITIAL_SIZE, sizeof(struct hashmap_bucket));
@@ -37,6 +38,40 @@ struct hashmap *create_hashmap(hash_func_t hfunc, equal_func_t efunc, free_func_
 
 static void hashmap_resize(struct hashmap *hmap) {
 
+	// Create a list of elements already in the hashmap
+	struct hashmap_bucket head;
+	struct hashmap_bucket *temp_curr = &head;
+
+	// Traverse buckets, free old linked list nodes
+	struct hashmap_bucket *buck_curr;
+	for(int i = 0; i < hmap->meta->bucket_count; ++i) {
+		buck_curr = hmap->meta->bucket_arr + i;
+		while(buck_curr && buck_curr->key) {
+			temp_curr->next = malloc(sizeof(struct hashmap_bucket));
+			struct hashmap_bucket *old_temp_curr = temp_curr;
+			temp_curr = temp_curr->next;
+			temp_curr->key = buck_curr->key;
+			temp_curr->value = buck_curr->value;
+			if(old_temp_curr != hmap->meta->bucket_arr + i) {
+				free(old_temp_curr);
+			}
+		}
+	}
+
+	// Update hashmap metadata
+	hmap->size = 0;
+	hmap->meta->bucket_count <<= 1;
+	hmap->meta->bucket_arr = realloc(hmap->meta->bucket_arr, hmap->meta->bucket_count * sizeof(struct hashmap_bucket));
+	memset(hmap->meta->bucket_arr, 0, hmap->meta->bucket_count * sizeof(struct hashmap_bucket));
+
+	// Repopulate hashmap, free temp list
+	temp_curr = head.next;
+	while(temp_curr) {
+		hashmap_put(hmap, temp_curr->key, temp_curr->value);
+		struct hashmap_bucket *old_temp_curr = temp_curr;
+		temp_curr = temp_curr->next;
+		free(old_temp_curr);
+	}
 }
 
 int hashmap_put(struct hashmap *hmap, void *key, void *value) {
@@ -105,10 +140,27 @@ void *hashmap_get(struct hashmap *hmap, void *key) {
 	}
 
 	// If the bucket contains the key, return its value
-	if(curr->key && hmap->meta->equal_func(key, curr->key)) {
-		return curr->value;
-	} else {
-		return NULL;
+	return curr->key && hmap->meta->equal_func(key, curr->key) ? curr->value : NULL;
+}
+
+void hashmap_destroy(struct hashmap *hmap) {
+
+	// Free each bucket
+	struct hashmap_bucket *buck_curr;
+	for(int i = 0; i < hmap->meta->bucket_count; ++i) {
+		buck_curr = hmap->meta->bucket_arr + i;
+		while(buck_curr && buck_curr->key) {
+			hmap->meta->key_free_func(buck_curr->key);
+			hmap->meta->value_free_func(buck_curr->value);
+			struct hashmap_bucket *old_temp_curr = buck_curr;
+			buck_curr = buck_curr->next;
+			free(old_temp_curr);
+		}
 	}
+
+	// Free data structures in the hashmap
+	free(hmap->meta->bucket_arr);
+	free(hmap->meta);
+	free(hmap);
 }
 
