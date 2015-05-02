@@ -13,7 +13,7 @@ struct car_t {
 struct person_t {
 	char *first_name;
 	char *last_name;
-	int age;
+	int money;
 };
 
 void *int_create(int val) {
@@ -47,7 +47,7 @@ void *person_create(int rand_val) {
 		"Samantha",
 		"Pratik",
 		"Lopez"
-	}) [rand_val % 11];
+	}) [(rand_val & 0x7FFFFFFF) % 11];
 	int reverse = 0;
 	for(int i = 32; i; --i) {
 		reverse <<= 1;
@@ -66,19 +66,20 @@ void *person_create(int rand_val) {
 		"Graham",
 		"Rogers",
 		"Popescu"
-	}) [reverse % 11];
+	}) [(reverse & 0x7FFFFFFF) % 11];
 	struct person_t *person = malloc(sizeof(struct person_t));
-	person->first_name = (char*) fname;
-	person->last_name = (char*) lname;
-	person->age = 18 + (reverse >> 15) % 17;
+	person->first_name = strdup(fname);
+	person->last_name = strdup(lname);
+	static int money = 0;
+	person->money = ++money;
 	return person;
 }
 
 int person_hash(const void *data) {
 	struct person_t *person = (struct person_t*) data;
-	int ret = person->age << 8;
+	int ret = person->money << 8;
 	char *ptr = person->first_name;
-	while(ptr) {
+	while(*ptr) {
 		ret ^= *ptr++;
 		for(int i = 7; i; --i) {
 			int bit = (ret >> 31) & 1;
@@ -87,7 +88,7 @@ int person_hash(const void *data) {
 		}
 	}
 	ptr = person->last_name;
-	while(ptr) {
+	while(*ptr) {
 		ret ^= *ptr++;
 		for(int i = 5; i; --i) {
 			int bit = ret & 1;
@@ -95,7 +96,7 @@ int person_hash(const void *data) {
 			ret = (ret & 0x7FFFFFFF) | (bit << 31);
 		}
 	}
-	return ret;
+	return ret & 0x7FFFFFFF;
 }
 
 void person_free(void *data) {
@@ -108,7 +109,7 @@ void person_free(void *data) {
 int person_equal(const void *data1, const void *data2) {
 	struct person_t *p1 = (struct person_t*) data1;
 	struct person_t *p2 = (struct person_t*) data2;
-	return p1->age == p2->age && !strcmp(p1->first_name, p2->first_name) && !strcmp(p1->last_name, p2->last_name);
+	return p1->money == p2->money && !strcmp(p1->first_name, p2->first_name) && !strcmp(p1->last_name, p2->last_name);
 }
 
 void *car_create(int rand_val) {
@@ -124,7 +125,7 @@ void *car_create(int rand_val) {
 		"Audi",
 		"Chysler",
 		"F150"
-	}) [rand_val % 11];
+	}) [(rand_val & 0x7FFFFFF) % 11];
 	struct car_t *car = malloc(sizeof(struct car_t));
 	car->model = strdup(model);
 	car->year = 1915 + rand_val % 100;
@@ -135,7 +136,7 @@ int car_hash(const void *data) {
 	struct car_t *car = (struct car_t*) data;
 	int ret = car->year << 8;
 	char *ptr = car->model;
-	while(ptr) {
+	while(*ptr) {
 		ret ^= *ptr++;
 		for(int i = 7; i; --i) {
 			int bit = (ret >> 31) & 1;
@@ -143,7 +144,7 @@ int car_hash(const void *data) {
 			ret |= bit;
 		}
 	}
-	return ret;
+	return ret & 0x7FFFFFFF;
 }
 
 int car_equal(const void *data1, const void *data2) {
@@ -204,9 +205,9 @@ int main() {
 	for(int i = 0; i < 1000; ++i) {
 		assert(car_equal(hashmap_get(hmap3, key_arr[i]), value_arr[i]));
 	}
-	void *something = malloc(4);
+	void *something = person_create(rand());
 	assert(hashmap_get(hmap3, something) == NULL);
-	free(something);
+	person_free(something);
 	assert(hmap3->size == 1000);
 	assert(hmap3->load_factor == 1000 / 2560.0);
 	hashmap_destroy(hmap3);

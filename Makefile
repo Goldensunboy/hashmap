@@ -26,4 +26,6 @@ release : clean all
 
 debug : CFLAGS += -g
 debug : clean all
+debug :
+	@echo "!!!!! Built using debug flag !!!!!"
 

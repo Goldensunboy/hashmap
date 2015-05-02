@@ -46,17 +46,15 @@ static void hashmap_resize(struct hashmap *hmap) {
 	// Traverse buckets, free old linked list nodes
 	struct hashmap_bucket *buck_curr;
 	for(int i = 0; i < hmap->meta->bucket_count; ++i) {
-		buck_curr = hmap->meta->bucket_arr + i;
-		while(buck_curr && buck_curr->key) {
+		buck_curr = hmap->meta->bucket_arr[i].next;
+		while(buck_curr) {
 			temp_curr->next = calloc(1, sizeof(struct hashmap_bucket));
-			struct hashmap_bucket *old_temp_curr = buck_curr;
 			temp_curr = temp_curr->next;
 			temp_curr->key = buck_curr->key;
 			temp_curr->value = buck_curr->value;
+			struct hashmap_bucket *old_temp_curr = buck_curr;
 			buck_curr = buck_curr->next;
-			if(old_temp_curr != hmap->meta->bucket_arr + i) {
-				free(old_temp_curr);
-			}
+			free(old_temp_curr);
 		}
 	}
 
@@ -85,34 +83,25 @@ int hashmap_put(struct hashmap *hmap, void *key, void *value) {
 
 	// Traverse to the entry that either contains the key given,
 	// or marks the end of the bucket
-	while(curr->next && !hmap->meta->equal_func(key, curr->key)) {
+	while(curr->next) {
 		curr = curr->next;
+		if(hmap->meta->equal_func(key, curr->key)) {
+			collision = 1;
+			break;
+		}
 	}
 
-	// Special case for this being the first entry for the bucket
-	if(curr == hmap->meta->bucket_arr + index) {
-
-		// If there is a collision, update existing key-value
-		// pair based on collision policy
-		if((collision = curr->key != NULL) && hmap->meta->collision_policy == CP_FREE_OLD_ENTRY) {
+	// If there is a collision, update existing key-value
+	// pair based on collision policy
+	if(collision) {
+		if(hmap->meta->collision_policy == CP_FREE_OLD_ENTRY) {
 			hmap->meta->key_free_func(curr->key);
 			hmap->meta->value_free_func(curr->value);
 		}
 	} else {
-		// If there is a collision, update existing key-value
-		// pair based on collision policy
-		if(hmap->meta->equal_func(key, curr->key)) {
-			collision = 1;
-			if(hmap->meta->collision_policy == CP_FREE_OLD_ENTRY) {
-				hmap->meta->key_free_func(curr->key);
-				hmap->meta->value_free_func(curr->value);
-			}
-		} else {
-			// If it was not a collision, make a new node
-			curr->next = malloc(sizeof(struct hashmap_bucket));
-			curr = curr->next;
-			curr->next = NULL;
-		}
+		curr = malloc(sizeof(struct hashmap_bucket));
+		curr->next = hmap->meta->bucket_arr[index].next;
+		hmap->meta->bucket_arr[index].next = curr;
 	}
 
 	// Set the new key-value pair
@@ -130,6 +119,7 @@ int hashmap_put(struct hashmap *hmap, void *key, void *value) {
 }
 
 void *hashmap_get(struct hashmap *hmap, void *key) {
+	void *value = NULL;
 
 	// Get the bucket this key hashes to
 	int index = hmap->meta->hash_func(key) % hmap->meta->bucket_count;
@@ -137,12 +127,16 @@ void *hashmap_get(struct hashmap *hmap, void *key) {
 
 	// Traverse to the entry that either contains the key given,
 	// or marks the end of the bucket
-	while(curr->next && !hmap->meta->equal_func(key, curr->key)) {
+	while(curr->next) {
 		curr = curr->next;
+		if(hmap->meta->equal_func(key, curr->key)) {
+			value = curr->value;
+			break;
+		}
 	}
 
 	// If the bucket contains the key, return its value
-	return curr->key && hmap->meta->equal_func(key, curr->key) ? curr->value : NULL;
+	return value;
 }
 
 void hashmap_destroy(struct hashmap *hmap) {
@@ -150,15 +144,13 @@ void hashmap_destroy(struct hashmap *hmap) {
 	// Free each bucket
 	struct hashmap_bucket *buck_curr;
 	for(int i = 0; i < hmap->meta->bucket_count; ++i) {
-		buck_curr = hmap->meta->bucket_arr + i;
-		while(buck_curr && buck_curr->key) {
+		buck_curr = hmap->meta->bucket_arr[i].next;
+		while(buck_curr) {
 			hmap->meta->key_free_func(buck_curr->key);
 			hmap->meta->value_free_func(buck_curr->value);
 			struct hashmap_bucket *old_temp_curr = buck_curr;
 			buck_curr = buck_curr->next;
-			if(old_temp_curr != hmap->meta->bucket_arr + i) {
-				free(old_temp_curr);
-			}
+			free(old_temp_curr);
 		}
 	}
 
